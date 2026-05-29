@@ -67,10 +67,15 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
         $lines = preg_split('/\r\n|\r|\n/', $raw) ?: [];
 
         // Collapse to unique, non-empty, trimmed values preserving order.
+        // Dedupe case-insensitively to match the case-insensitive existing-label
+        // skip below (so pasting "Red" and "red" together yields one option).
         $candidates = [];
+        $seen = [];
         foreach ($lines as $line) {
             $value = trim($line);
-            if ($value !== '' && !in_array($value, $candidates, true)) {
+            $key = mb_strtolower($value);
+            if ($value !== '' && !isset($seen[$key])) {
+                $seen[$key] = true;
                 $candidates[] = $value;
             }
         }
@@ -134,7 +139,7 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
             );
             if ($skipped !== []) {
                 Mage::getSingleton('adminhtml/session')->addNotice(
-                    $this->__('Skipped %d value(s) that already exist: %s', count($skipped), implode(', ', $skipped)),
+                    $this->__('Skipped %d value(s) that already exist: %s', count($skipped), Mage::helper('core')->escapeHtml(implode(', ', $skipped))),
                 );
             }
         } catch (\Throwable $e) {
@@ -219,7 +224,7 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
                 $this->__(
                     'Merged %d option(s) into "%s". Reassigned %d product value(s); %d obsolete option(s) deleted.',
                     count($sourceIds),
-                    $this->_getOptionLabels($attribute)[$goal] ?? (string) $goal,
+                    Mage::helper('core')->escapeHtml($this->_getOptionLabels($attribute)[$goal] ?? (string) $goal),
                     $result['reassigned'],
                     $result['deleted'],
                 ),
@@ -277,6 +282,20 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
         }
         if (!is_array($default)) {
             $default = [];
+        }
+
+        // Defence-in-depth: reject any submitted option_id that does not belong
+        // to this attribute. New client-added rows use non-numeric "option_N"
+        // keys and are always allowed. Mirrors the ownership check mergeAction
+        // performs, so the grid save can't be hand-crafted to touch another
+        // attribute's options.
+        $validIds = array_map('intval', array_keys($this->_getOptionLabels($attribute)));
+        if (!$this->_submittedOptionsBelong($option, $default, $validIds)) {
+            Mage::getSingleton('adminhtml/session')->addError(
+                $this->__('One or more submitted options do not belong to this attribute.'),
+            );
+            $this->_redirectBack($attribute);
+            return;
         }
 
         try {
@@ -341,6 +360,41 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
         }
 
         return $attribute;
+    }
+
+    /**
+     * Defence-in-depth ownership check for the save grid: every numeric
+     * option_id referenced in the submitted option[value|order|delete] keys and
+     * default[] values must belong to $validIds. Non-numeric keys ("option_N")
+     * are client-added new rows and are allowed.
+     *
+     * @param array<int|string, mixed> $option
+     * @param array<int|string, mixed> $default
+     * @param int[]                    $validIds
+     */
+    private function _submittedOptionsBelong(array $option, array $default, array $validIds): bool
+    {
+        $ok = static function ($id) use ($validIds): bool {
+            if (!ctype_digit((string) $id)) {
+                return true; // new "option_N" client row
+            }
+            return in_array((int) $id, $validIds, true);
+        };
+        foreach (['value', 'order', 'delete'] as $k) {
+            if (isset($option[$k]) && is_array($option[$k])) {
+                foreach (array_keys($option[$k]) as $id) {
+                    if (!$ok($id)) {
+                        return false;
+                    }
+                }
+            }
+        }
+        foreach ($default as $id) {
+            if (!$ok($id)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
