@@ -55,9 +55,9 @@ class Mageaustralia_AttributeManager_Block_Adminhtml_Tab extends Mage_Adminhtml_
         }
 
         $result = [];
-        // getSource()->getAllOptions(false) returns admin-store labels with
+        // getSource()->getAllOptions() returns admin-store labels with
         // option_id values, excluding the empty "please select" row.
-        foreach ($attribute->getSource()->getAllOptions(false) as $option) {
+        foreach ($attribute->getSource()->getAllOptions() as $option) {
             $value = $option['value'] ?? null;
             if ($value === null || $value === '') {
                 continue;
@@ -100,7 +100,7 @@ class Mageaustralia_AttributeManager_Block_Adminhtml_Tab extends Mage_Adminhtml_
     }
 
     /**
-     * The "Is Default" input type for the grid — radio for select, checkbox
+     * The "Is Default" input type for the grid - radio for select, checkbox
      * for multiselect. Matches Mage_Eav_Block_Adminhtml_Attribute_Edit_Options_Abstract.
      */
     public function getDefaultInputType(): string

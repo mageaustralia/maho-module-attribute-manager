@@ -18,7 +18,7 @@ declare(strict_types=1);
  * option_id integers (not labels): in modern Maho EAV the product value tables
  * store the option_id as a foreign key into eav_attribute_option, NOT the
  * label string. The original Elgentos extension updated `value` as if it held
- * the label — that is wrong on this schema and is deliberately NOT replicated.
+ * the label - that is wrong on this schema and is deliberately NOT replicated.
  *
  * Tables touched (verified against the live dev schema):
  *   - catalog_product_entity_int.value      => option_id for select/int attrs
@@ -72,15 +72,15 @@ class Mageaustralia_AttributeManager_Helper_Merge extends Mage_Core_Helper_Abstr
         $write->beginTransaction();
         try {
             if ($isMultiselect) {
-                $reassigned += $this->_remapMultiselect($write, $valueTable, $attributeId, $sourceIds, $goalId);
+                $reassigned += $this->_remapMultiselect(Maho\Db\Adapter\AdapterInterface $write, $valueTable, $attributeId, $sourceIds, $goalId);
             } else {
-                $reassigned += $this->_remapInt($write, $valueTable, $attributeId, $sourceIds, $goalId);
+                $reassigned += $this->_remapInt(Maho\Db\Adapter\AdapterInterface $write, $valueTable, $attributeId, $sourceIds, $goalId);
             }
 
             // Configurable super-attribute pricing references option_id as a
             // string in value_index. Remap any pricing rows that point at a
             // source option so per-option price modifiers follow the merge.
-            $reassigned += $this->_remapSuperAttributePricing($write, $attributeId, $sourceIds, $goalId);
+            $reassigned += $this->_remapSuperAttributePricing(Maho\Db\Adapter\AdapterInterface $write, $attributeId, $sourceIds, $goalId);
 
             // Finally delete the now-orphaned source options. The matching
             // eav_attribute_option_value rows cascade-delete via FK.
@@ -105,7 +105,7 @@ class Mageaustralia_AttributeManager_Helper_Merge extends Mage_Core_Helper_Abstr
      * Done per source id so we don't clobber rows that already hold the goal
      * value, and to keep the WHERE strictly scoped to this attribute.
      */
-    private function _remapInt($write, string $table, int $attributeId, array $sourceIds, int $goalId): int
+    private function _remapInt(Maho\Db\Adapter\AdapterInterface $write, string $table, int $attributeId, array $sourceIds, int $goalId): int
     {
         return (int) $write->update(
             $table,
@@ -125,7 +125,7 @@ class Mageaustralia_AttributeManager_Helper_Merge extends Mage_Core_Helper_Abstr
      * Read-modify-write in PHP keeps this portable (no DB string functions)
      * and correct for the CSV semantics.
      */
-    private function _remapMultiselect($write, string $table, int $attributeId, array $sourceIds, int $goalId): int
+    private function _remapMultiselect(Maho\Db\Adapter\AdapterInterface $write, string $table, int $attributeId, array $sourceIds, int $goalId): int
     {
         $sourceSet = array_fill_keys($sourceIds, true);
 
@@ -172,7 +172,7 @@ class Mageaustralia_AttributeManager_Helper_Merge extends Mage_Core_Helper_Abstr
      * Re-point rows that reference a source option to the goal, only for
      * super-attributes that are THIS attribute.
      */
-    private function _remapSuperAttributePricing($write, int $attributeId, array $sourceIds, int $goalId): int
+    private function _remapSuperAttributePricing(Maho\Db\Adapter\AdapterInterface $write, int $attributeId, array $sourceIds, int $goalId): int
     {
         $resource     = Mage::getSingleton('core/resource');
         $pricingTable = $resource->getTableName('catalog/product_super_attribute_pricing');

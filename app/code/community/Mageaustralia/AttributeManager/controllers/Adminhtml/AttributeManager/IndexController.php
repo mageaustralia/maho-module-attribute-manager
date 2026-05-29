@@ -16,9 +16,9 @@ declare(strict_types=1);
  * Two state-changing POST actions invoked from the "Bulk Options" tab on the
  * product-attribute edit page:
  *
- *   addAction()   — Feature A: batch-create dropdown options from a textarea
+ *   addAction()   - Feature A: batch-create dropdown options from a textarea
  *                   of newline-separated values (skips existing labels).
- *   mergeAction() — Feature B: reassign every product currently using one of
+ *   mergeAction() - Feature B: reassign every product currently using one of
  *                   the selected option_ids to a single goal option_id, then
  *                   delete the now-empty source options.
  *
@@ -48,7 +48,7 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
     }
 
     /**
-     * Feature A — batch add options.
+     * Feature A - batch add options.
      *
      * Reads POST `options` (newline-separated), trims/dedupes, skips labels
      * that already exist on the attribute, and creates the rest via the
@@ -90,7 +90,7 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
 
         // Existing labels (admin store) for case-insensitive skip.
         $existing = [];
-        foreach ($attribute->getSource()->getAllOptions(false) as $opt) {
+        foreach ($attribute->getSource()->getAllOptions() as $opt) {
             $existing[mb_strtolower(trim((string) $opt['label']))] = true;
         }
 
@@ -112,7 +112,7 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
 
         if ($newOptions === []) {
             Mage::getSingleton('adminhtml/session')->addNotice(
-                $this->__('All %d value(s) already exist — nothing added.', count($skipped)),
+                $this->__('All %d value(s) already exist - nothing added.', count($skipped)),
             );
             $this->_redirectBack($attribute);
             return;
@@ -153,12 +153,12 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
     }
 
     /**
-     * Feature B — merge options.
+     * Feature B - merge options.
      *
      * POST: merge[] (source option_ids), mergegoal (target option_id).
      * Reassigns all product values from the source options to the goal, then
      * deletes the source options. Operates on option_id integers (NOT labels)
-     * — the modern EAV catalog_product_entity_int.value stores the option_id.
+     * - the modern EAV catalog_product_entity_int.value stores the option_id.
      */
     #[Maho\Config\Route('/admin/attributemanager_index/merge')]
     public function mergeAction(): void
@@ -315,7 +315,7 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
             $model->save();
 
             // Attribute labels live in the translation cache (same as core).
-            Mage::app()->cleanCache([Mage_Core_Model_Translate::CACHE_TAG]);
+            Mage::app()->getCacheInstance()->clean([Mage_Core_Model_Translate::CACHE_TAG]);
 
             Mage::getSingleton('adminhtml/session')->addSuccess(
                 $this->__('Attribute options have been saved.'),
@@ -403,7 +403,7 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
     private function _getOptionLabels(Mage_Eav_Model_Entity_Attribute $attribute): array
     {
         $labels = [];
-        foreach ($attribute->getSource()->getAllOptions(false) as $opt) {
+        foreach ($attribute->getSource()->getAllOptions() as $opt) {
             $value = $opt['value'] ?? null;
             if ($value !== null && $value !== '') {
                 $labels[(int) $value] = (string) $opt['label'];
