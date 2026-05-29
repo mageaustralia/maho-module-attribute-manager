@@ -72,15 +72,15 @@ class Mageaustralia_AttributeManager_Helper_Merge extends Mage_Core_Helper_Abstr
         $write->beginTransaction();
         try {
             if ($isMultiselect) {
-                $reassigned += $this->_remapMultiselect(Maho\Db\Adapter\AdapterInterface $write, $valueTable, $attributeId, $sourceIds, $goalId);
+                $reassigned += $this->_remapMultiselect($write, $valueTable, $attributeId, $sourceIds, $goalId);
             } else {
-                $reassigned += $this->_remapInt(Maho\Db\Adapter\AdapterInterface $write, $valueTable, $attributeId, $sourceIds, $goalId);
+                $reassigned += $this->_remapInt($write, $valueTable, $attributeId, $sourceIds, $goalId);
             }
 
             // Configurable super-attribute pricing references option_id as a
             // string in value_index. Remap any pricing rows that point at a
             // source option so per-option price modifiers follow the merge.
-            $reassigned += $this->_remapSuperAttributePricing(Maho\Db\Adapter\AdapterInterface $write, $attributeId, $sourceIds, $goalId);
+            $reassigned += $this->_remapSuperAttributePricing($write, $attributeId, $sourceIds, $goalId);
 
             // Finally delete the now-orphaned source options. The matching
             // eav_attribute_option_value rows cascade-delete via FK.
