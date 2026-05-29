@@ -43,16 +43,6 @@ composer require mageaustralia/maho-module-attribute-manager
 
 The tab only appears for option-table-backed `select` / `multiselect` attributes - attributes with a custom source model (status, visibility, etc.) are not manageable here.
 
-## Screenshots
-
-### Bulk Options tab
-
-![Bulk Options tab](docs/screenshots/bulk-options-tab.png)
-
-### Merging options
-
-![Merge options](docs/screenshots/merge.png)
-
 ## Security model - summary
 
 - The admin controller is in the adminhtml area → automatic admin auth + ACL (`catalog/attributes/mageaustralia_attributemanager`).
