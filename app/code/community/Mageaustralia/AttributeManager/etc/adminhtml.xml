@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Maho
+ *
+ * @package    Mageaustralia_AttributeManager
+ * @copyright  Copyright (c) 2026 Maho Australia
+ * @license    https://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ */
+-->
+<config>
+    <acl>
+        <resources>
+            <admin>
+                <children>
+                    <catalog>
+                        <children>
+                            <attributes>
+                                <children>
+                                    <mageaustralia_attributemanager translate="title" module="mageaustralia_attributemanager">
+                                        <title>Bulk Attribute Options (add / merge)</title>
+                                        <sort_order>50</sort_order>
+                                    </mageaustralia_attributemanager>
+                                </children>
+                            </attributes>
+                        </children>
+                    </catalog>
+                </children>
+            </admin>
+        </resources>
+    </acl>
+</config>

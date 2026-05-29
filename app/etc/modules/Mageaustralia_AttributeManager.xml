@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<config>
+    <modules>
+        <Mageaustralia_AttributeManager>
+            <active>true</active>
+            <codePool>community</codePool>
+            <depends>
+                <Mage_Adminhtml/>
+                <Mage_Catalog/>
+                <Mage_Eav/>
+            </depends>
+        </Mageaustralia_AttributeManager>
+    </modules>
+</config>

@@ -1,0 +1,441 @@
+<?php
+/**
+ * Maho
+ *
+ * @package    Mageaustralia_AttributeManager
+ * @copyright  Copyright (c) 2026 Maho Australia
+ * @license    https://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ */
+
+/**
+ * "Bulk Options" tab template.
+ *
+ * Two sections, three independent admin forms (none of which reuse the native
+ * option[...] / default[] / frontend_label[...] field names while submitting
+ * through the shared #edit_form — each posts to its own module controller
+ * action so nothing collides with the native "Manage Label / Options" tab):
+ *
+ *   Section 1 — "In batch": a large textarea of newline-separated values,
+ *               POSTed to addAction (batch add).
+ *   Section 2 — "One by one": a full editable options grid (Admin + per-store
+ *               labels, Position, Is Default, Merge, Merge goal, drag handle,
+ *               Add Option, Delete) inside its OWN <form>. The Save button
+ *               POSTs to saveAction; the "Merge Selected Options" button swaps
+ *               the form action to mergeAction (after a confirm) then submits.
+ *
+ * Native Maho admin CSS classes are reused (entry-edit / entry-edit-head /
+ * fieldset / data-table / input-text / scalable) so the tab looks native.
+ *
+ * Vanilla JS only — no Prototype/jQuery. HTML5 drag-and-drop reorders rows and
+ * rewrites the Position inputs. Add/Delete are vanilla DOM operations.
+ * Only escapeHtml()/escapeUrl() are used (escapeHtmlAttr does not exist).
+ *
+ * @var Mageaustralia_AttributeManager_Block_Adminhtml_Tab $this
+ */
+$attributeId   = $this->getAttributeId();
+$formKey       = $this->getFormKey();
+$stores        = $this->getStores();
+$rows          = $this->getOptionRows();
+$defaultType   = $this->getDefaultInputType();
+?>
+<style>
+/* Polish: centre the drag handle vertically in its row, and space the
+   stacked Delete buttons so they don't read as one solid red bar. */
+#mageaustralia-attributemanager-grid td { vertical-align: middle; }
+#mageaustralia-attributemanager-grid td.mam-drag { font-size: 16px; line-height: 1; }
+#mageaustralia-attributemanager-grid .mam-delete-row { margin: 3px 0; }
+/* Match the native options grid: give each store-view column a fixed width
+   so long headers (e.g. "Tennis Warehouse Australia") wrap inside their own
+   column instead of bleeding into the next one, and let the label inputs
+   fill the column. */
+#mageaustralia-attributemanager-grid th { white-space: normal; }
+#mageaustralia-attributemanager-grid .mam-store-col { width: 160px; }
+#mageaustralia-attributemanager-grid td.mam-store-col input.input-text { width: 100%; box-sizing: border-box; }
+/* Drag feedback: the row being dragged goes semi-transparent (like Elgentos),
+   so it's obvious the whole option is moving, not just the handle. */
+#mageaustralia-attributemanager-grid tr.mam-dragging td { opacity: 0.45; background: #fff7e6; }
+/* Keep the batch textarea a sensible size instead of stretching to the full
+   (grid-widened) content width, and give both sections bottom breathing room. */
+#mageaustralia-attributemanager-add-textarea { max-width: 900px; }
+#mageaustralia-attributemanager-bulk .fieldset,
+#mageaustralia-attributemanager-grid-wrap .fieldset { padding-bottom: 20px; }
+</style>
+<div class="entry-edit" id="mageaustralia-attributemanager-bulk">
+    <div class="entry-edit-head">
+        <h4 class="icon-head head-edit-form fieldset-legend">
+            <?= $this->escapeHtml($this->__('Manage Options (values of your attribute) - In batch')) ?>
+        </h4>
+    </div>
+    <div class="fieldset">
+        <p class="note">
+            <?= $this->escapeHtml($this->__('Add your attribute options quickly by putting a new option on each line;')) ?>
+        </p>
+        <form method="post"
+              action="<?= $this->escapeUrl($this->getAddUrl()) ?>"
+              id="mageaustralia-attributemanager-add-form">
+            <input type="hidden" name="form_key" value="<?= $this->escapeHtml($formKey) ?>" />
+            <input type="hidden" name="attribute_id" value="<?= $this->escapeHtml((string) $attributeId) ?>" />
+            <textarea name="options"
+                      id="mageaustralia-attributemanager-add-textarea"
+                      rows="20"
+                      style="width:100%;min-height:320px;font-family:monospace;"
+                      placeholder="<?= $this->escapeHtml("e.g.\nRed\nGreen\nBlue") ?>"></textarea>
+            <div style="margin-top:10px;">
+                <button type="submit" class="scalable add" id="mageaustralia-attributemanager-add-button">
+                    <span><span><span><?= $this->escapeHtml($this->__('Add Options')) ?></span></span></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="entry-edit" id="mageaustralia-attributemanager-grid-wrap" style="margin-top:25px;">
+    <div class="entry-edit-head">
+        <h4 class="icon-head head-edit-form fieldset-legend">
+            <?= $this->escapeHtml($this->__('Manage Options (values of your attribute) - One by one')) ?>
+        </h4>
+    </div>
+    <div class="fieldset">
+        <p class="note">
+            <?= $this->escapeHtml($this->__('Edit labels per store view, reorder by dragging the handle, mark options to merge into a single goal, then Save. "Merge Selected Options" reassigns every product on a ticked option to the goal option and deletes the ticked ones — this cannot be undone.')) ?>
+        </p>
+
+        <form method="post"
+              action="<?= $this->escapeUrl($this->getSaveUrl()) ?>"
+              id="mageaustralia-attributemanager-grid-form"
+              data-save-url="<?= $this->escapeUrl($this->getSaveUrl()) ?>"
+              data-merge-url="<?= $this->escapeUrl($this->getMergeUrl()) ?>">
+            <input type="hidden" name="form_key" value="<?= $this->escapeHtml($formKey) ?>" />
+            <input type="hidden" name="attribute_id" value="<?= $this->escapeHtml((string) $attributeId) ?>" />
+
+            <div class="hor-scroll">
+                <table class="data data-table" cellspacing="0" id="mageaustralia-attributemanager-grid">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;text-align:center;" title="<?= $this->escapeHtml($this->__('Drag to reorder')) ?>">&#x2195;</th>
+                            <?php foreach ($stores as $store): ?>
+                                <th class="mam-store-col"><?= $this->escapeHtml($store->getId() == 0 ? $this->__('Admin') : $store->getName()) ?></th>
+                            <?php endforeach; ?>
+                            <th style="width:70px;"><?= $this->escapeHtml($this->__('Position')) ?></th>
+                            <th class="a-center" style="width:70px;"><?= $this->escapeHtml($this->__('Is Default')) ?></th>
+                            <th class="a-center" style="width:60px;"><?= $this->escapeHtml($this->__('Merge')) ?></th>
+                            <th class="a-center" style="width:80px;"><?= $this->escapeHtml($this->__('Merge goal')) ?></th>
+                            <th class="a-center" style="width:90px;">
+                                <button type="button" class="scalable add" id="mageaustralia-attributemanager-add-row">
+                                    <span><span><span><?= $this->escapeHtml($this->__('Add Option')) ?></span></span></span>
+                                </button>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="mageaustralia-attributemanager-grid-body">
+                        <?php foreach ($rows as $row): $id = $row['id']; ?>
+                        <tr class="mam-row" data-option-id="<?= $this->escapeHtml((string) $id) ?>">
+                            <td class="a-center mam-drag" style="cursor:grab;" draggable="true" title="<?= $this->escapeHtml($this->__('Drag to reorder')) ?>">&#x2195;</td>
+                            <?php foreach ($stores as $store): $sid = (int) $store->getId(); ?>
+                            <td class="mam-store-col">
+                                <input type="text"
+                                       class="input-text<?= $sid === 0 ? ' required-option' : '' ?>"
+                                       name="option[value][<?= $this->escapeHtml((string) $id) ?>][<?= $this->escapeHtml((string) $sid) ?>]"
+                                       value="<?= $this->escapeHtml((string) ($row['stores'][$sid] ?? '')) ?>" />
+                            </td>
+                            <?php endforeach; ?>
+                            <td class="a-center">
+                                <input type="text"
+                                       class="input-text mam-position"
+                                       name="option[order][<?= $this->escapeHtml((string) $id) ?>]"
+                                       value="<?= $this->escapeHtml((string) $row['sort_order']) ?>"
+                                       style="width:50px;" />
+                            </td>
+                            <td class="a-center">
+                                <input type="<?= $this->escapeHtml($defaultType) ?>"
+                                       class="<?= $defaultType === 'radio' ? 'input-radio' : 'input-checkbox' ?> mam-default"
+                                       name="default[]"
+                                       value="<?= $this->escapeHtml((string) $id) ?>"
+                                       <?= $row['is_default'] ? 'checked="checked"' : '' ?> />
+                            </td>
+                            <td class="a-center">
+                                <input type="checkbox"
+                                       class="input-checkbox mam-merge-source"
+                                       name="merge[]"
+                                       value="<?= $this->escapeHtml((string) $id) ?>" />
+                            </td>
+                            <td class="a-center">
+                                <input type="radio"
+                                       class="input-radio mam-merge-goal"
+                                       name="mergegoal"
+                                       value="<?= $this->escapeHtml((string) $id) ?>" />
+                            </td>
+                            <td class="a-left">
+                                <input type="hidden" class="mam-delete-flag" name="option[delete][<?= $this->escapeHtml((string) $id) ?>]" value="" />
+                                <button type="button" class="scalable delete mam-delete-row">
+                                    <span><span><span><?= $this->escapeHtml($this->__('Delete')) ?></span></span></span>
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="margin-top:12px;">
+                <button type="submit" class="scalable save" id="mageaustralia-attributemanager-save-button">
+                    <span><span><span><?= $this->escapeHtml($this->__('Save Options')) ?></span></span></span>
+                </button>
+                <button type="button" class="scalable" id="mageaustralia-attributemanager-merge-button" style="margin-left:8px;">
+                    <span><span><span><?= $this->escapeHtml($this->__('Merge Selected Options')) ?></span></span></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+(function () {
+    'use strict';
+
+    var STORE_IDS = <?= Mage::helper('core')->jsonEncode(array_map(static fn($s) => (int) $s->getId(), iterator_to_array($stores))) ?>;
+    var DEFAULT_TYPE = <?= Mage::helper('core')->jsonEncode($defaultType) ?>;
+    var DELETE_LABEL = <?= Mage::helper('core')->jsonEncode($this->__('Delete')) ?>;
+    var MSG = {
+        needSource:  <?= Mage::helper('core')->jsonEncode($this->__('Tick at least one option to merge away.')) ?>,
+        needGoal:    <?= Mage::helper('core')->jsonEncode($this->__('Choose one option to keep (the target).')) ?>,
+        goalSource:  <?= Mage::helper('core')->jsonEncode($this->__('The target option cannot also be ticked to merge away. Untick it first.')) ?>,
+        confirmMerge:<?= Mage::helper('core')->jsonEncode($this->__('Reassign all matching products and permanently delete the ticked option(s)? This cannot be undone.')) ?>
+    };
+
+    var form = document.getElementById('mageaustralia-attributemanager-grid-form');
+    if (!form) { return; }
+
+    var tbody     = document.getElementById('mageaustralia-attributemanager-grid-body');
+    var saveUrl   = form.getAttribute('data-save-url');
+    var mergeUrl  = form.getAttribute('data-merge-url');
+    var newRowSeq = 0;
+
+    // ---- Renumber the Position inputs from current DOM order (top = 1). ----
+    function renumberPositions() {
+        var rows = tbody.querySelectorAll('tr.mam-row');
+        var pos = 1;
+        rows.forEach(function (tr) {
+            if (tr.style.display === 'none') { return; }
+            var input = tr.querySelector('.mam-position');
+            if (input) { input.value = pos; }
+            pos += 1;
+        });
+    }
+
+    // ---- Build a fresh blank row (vanilla DOM template; no Prototype). ----
+    function buildRow() {
+        var rowId = 'option_' + newRowSeq;
+        newRowSeq += 1;
+
+        var tr = document.createElement('tr');
+        tr.className = 'mam-row';
+        tr.setAttribute('data-option-id', rowId);
+
+        var dragTd = document.createElement('td');
+        dragTd.className = 'a-center mam-drag';
+        dragTd.style.cursor = 'grab';
+        dragTd.setAttribute('draggable', 'true');
+        dragTd.textContent = '↕';
+        tr.appendChild(dragTd);
+
+        STORE_IDS.forEach(function (sid) {
+            var td = document.createElement('td');
+            td.className = 'mam-store-col';
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'input-text' + (sid === 0 ? ' required-option' : '');
+            input.name = 'option[value][' + rowId + '][' + sid + ']';
+            input.value = '';
+            td.appendChild(input);
+            tr.appendChild(td);
+        });
+
+        var posTd = document.createElement('td');
+        posTd.className = 'a-center';
+        var posInput = document.createElement('input');
+        posInput.type = 'text';
+        posInput.className = 'input-text mam-position';
+        posInput.name = 'option[order][' + rowId + ']';
+        posInput.style.width = '50px';
+        posInput.value = '';
+        posTd.appendChild(posInput);
+        tr.appendChild(posTd);
+
+        var defTd = document.createElement('td');
+        defTd.className = 'a-center';
+        var defInput = document.createElement('input');
+        defInput.type = DEFAULT_TYPE;
+        defInput.className = (DEFAULT_TYPE === 'radio' ? 'input-radio' : 'input-checkbox') + ' mam-default';
+        defInput.name = 'default[]';
+        defInput.value = rowId;
+        defTd.appendChild(defInput);
+        tr.appendChild(defTd);
+
+        var mergeTd = document.createElement('td');
+        mergeTd.className = 'a-center';
+        var mergeInput = document.createElement('input');
+        mergeInput.type = 'checkbox';
+        mergeInput.className = 'input-checkbox mam-merge-source';
+        mergeInput.name = 'merge[]';
+        mergeInput.value = rowId;
+        mergeTd.appendChild(mergeInput);
+        tr.appendChild(mergeTd);
+
+        var goalTd = document.createElement('td');
+        goalTd.className = 'a-center';
+        var goalInput = document.createElement('input');
+        goalInput.type = 'radio';
+        goalInput.className = 'input-radio mam-merge-goal';
+        goalInput.name = 'mergegoal';
+        goalInput.value = rowId;
+        goalTd.appendChild(goalInput);
+        tr.appendChild(goalTd);
+
+        var delTd = document.createElement('td');
+        delTd.className = 'a-left';
+        var delFlag = document.createElement('input');
+        delFlag.type = 'hidden';
+        delFlag.className = 'mam-delete-flag';
+        delFlag.name = 'option[delete][' + rowId + ']';
+        delFlag.value = '';
+        delTd.appendChild(delFlag);
+        var delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'scalable delete mam-delete-row';
+        var span1 = document.createElement('span');
+        var span2 = document.createElement('span');
+        var span3 = document.createElement('span');
+        span3.textContent = DELETE_LABEL;
+        span2.appendChild(span3);
+        span1.appendChild(span2);
+        delBtn.appendChild(span1);
+        delTd.appendChild(delBtn);
+        tr.appendChild(delTd);
+
+        bindDrag(dragTd);
+        return tr;
+    }
+
+    // ---- Delete: mark hidden flag + hide (like native). New, never-saved ----
+    // ---- rows (id "option_N") are removed outright.                      ----
+    function deleteRow(tr) {
+        var optionId = tr.getAttribute('data-option-id') || '';
+        if (optionId.indexOf('option_') === 0) {
+            tr.parentNode.removeChild(tr);
+        } else {
+            var flag = tr.querySelector('.mam-delete-flag');
+            if (flag) { flag.value = '1'; }
+            tr.style.display = 'none';
+        }
+        renumberPositions();
+    }
+
+    // ---- HTML5 drag-and-drop reordering, driven by the drag handle. ----
+    var dragSrcRow = null;
+
+    function clearMarkers() {
+        tbody.querySelectorAll('tr.mam-row').forEach(function (r) { r.style.borderTop = ''; });
+    }
+
+    function bindDrag(handle) {
+        handle.addEventListener('dragstart', function (e) {
+            dragSrcRow = handle.closest('tr.mam-row');
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                // Firefox requires data to be set for the drag to begin.
+                e.dataTransfer.setData('text/plain', dragSrcRow ? (dragSrcRow.getAttribute('data-option-id') || '') : '');
+                // Drag a snapshot of the WHOLE row (not just the handle cell)
+                // so it's obvious the whole option is moving.
+                if (dragSrcRow && e.dataTransfer.setDragImage) {
+                    e.dataTransfer.setDragImage(dragSrcRow, 20, 10);
+                }
+            }
+            // Fade the source row AFTER the drag image is captured (next tick),
+            // so the row being moved goes semi-transparent — like Elgentos.
+            if (dragSrcRow) {
+                window.setTimeout(function () {
+                    if (dragSrcRow) { dragSrcRow.classList.add('mam-dragging'); }
+                }, 0);
+            }
+        });
+        handle.addEventListener('dragend', function () {
+            if (dragSrcRow) { dragSrcRow.classList.remove('mam-dragging'); }
+            dragSrcRow = null;
+            clearMarkers();
+            renumberPositions();
+        });
+    }
+
+    // Live reorder: as you drag, the faded source row is moved into the slot
+    // under the cursor in real time, so the rows physically push apart and the
+    // landing slot is obvious — mirrors the Elgentos "gap opens up" feel.
+    tbody.addEventListener('dragover', function (e) {
+        if (!dragSrcRow) { return; }
+        e.preventDefault();
+        if (e.dataTransfer) { e.dataTransfer.dropEffect = 'move'; }
+        var overRow = e.target.closest('tr.mam-row');
+        if (!overRow || overRow === dragSrcRow) { return; }
+        var rect = overRow.getBoundingClientRect();
+        var after = (e.clientY - rect.top) > (rect.height / 2);
+        if (after) {
+            if (overRow.nextSibling !== dragSrcRow) {
+                overRow.parentNode.insertBefore(dragSrcRow, overRow.nextSibling);
+            }
+        } else if (overRow.previousSibling !== dragSrcRow) {
+            overRow.parentNode.insertBefore(dragSrcRow, overRow);
+        }
+    });
+
+    tbody.addEventListener('drop', function (e) {
+        if (!dragSrcRow) { return; }
+        e.preventDefault();
+        renumberPositions();
+    });
+
+    // ---- Event wiring. ----
+    document.getElementById('mageaustralia-attributemanager-add-row').addEventListener('click', function () {
+        tbody.appendChild(buildRow());
+        renumberPositions();
+    });
+
+    tbody.addEventListener('click', function (e) {
+        var btn = e.target.closest('.mam-delete-row');
+        if (!btn) { return; }
+        var tr = btn.closest('tr.mam-row');
+        if (tr) { deleteRow(tr); }
+    });
+
+    tbody.querySelectorAll('.mam-drag').forEach(bindDrag);
+
+    // Save: ensure positions reflect current order and post to saveAction.
+    document.getElementById('mageaustralia-attributemanager-save-button').addEventListener('click', function () {
+        form.setAttribute('action', saveUrl);
+        renumberPositions();
+    });
+
+    // Merge: validate, swap the form action to mergeAction, confirm, submit.
+    // mergeAction only reads merge[] + mergegoal; the extra option[]/default[]
+    // fields are harmless POST data it ignores.
+    document.getElementById('mageaustralia-attributemanager-merge-button').addEventListener('click', function () {
+        var sources = Array.prototype.slice.call(form.querySelectorAll('.mam-merge-source:checked'));
+        var goalInput = form.querySelector('.mam-merge-goal:checked');
+
+        if (sources.length < 1) { alert(MSG.needSource); return; }
+        if (!goalInput) { alert(MSG.needGoal); return; }
+
+        var goalId = goalInput.value;
+        var clash = sources.some(function (cb) { return cb.value === goalId; });
+        if (clash) { alert(MSG.goalSource); return; }
+
+        if (!window.confirm(MSG.confirmMerge)) { return; }
+
+        form.setAttribute('action', mergeUrl);
+        form.submit();
+    });
+
+    renumberPositions();
+})();
+//]]>
+</script>

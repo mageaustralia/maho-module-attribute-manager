@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Maho
+ *
+ * @package    Mageaustralia_AttributeManager
+ * @copyright  Copyright (c) 2026 Maho Australia
+ * @license    https://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ */
+
+/**
+ * Adds a "Bulk Options" tab to the product-attribute edit page with two tools:
+ *   - Batch add: paste newline-separated values to create dropdown options.
+ *   - Merge: reassign products from selected options to a goal option, then
+ *     delete the now-empty options.
+ *
+ * The native "Manage Label / Options" grid is left fully intact; this module
+ * only APPENDS a tab via an observer on the attribute-edit tabs block.
+ */
+-->
+<config>
+    <modules>
+        <Mageaustralia_AttributeManager>
+            <version>1.0.0</version>
+        </Mageaustralia_AttributeManager>
+    </modules>
+
+    <global>
+        <helpers>
+            <mageaustralia_attributemanager>
+                <class>Mageaustralia_AttributeManager_Helper</class>
+            </mageaustralia_attributemanager>
+        </helpers>
+        <blocks>
+            <mageaustralia_attributemanager>
+                <class>Mageaustralia_AttributeManager_Block</class>
+            </mageaustralia_attributemanager>
+        </blocks>
+        <models>
+            <mageaustralia_attributemanager>
+                <class>Mageaustralia_AttributeManager_Model</class>
+            </mageaustralia_attributemanager>
+        </models>
+    </global>
+
+    <adminhtml>
+        <events>
+            <adminhtml_block_widget_tabs_html_before>
+                <observers>
+                    <mageaustralia_attributemanager_add_tab>
+                        <class>mageaustralia_attributemanager/observer</class>
+                        <method>addBulkOptionsTab</method>
+                    </mageaustralia_attributemanager_add_tab>
+                </observers>
+            </adminhtml_block_widget_tabs_html_before>
+        </events>
+        <translate>
+            <modules>
+                <Mageaustralia_AttributeManager>
+                    <files>
+                        <default>Mageaustralia_AttributeManager.csv</default>
+                    </files>
+                </Mageaustralia_AttributeManager>
+            </modules>
+        </translate>
+    </adminhtml>
+</config>

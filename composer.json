@@ -1,0 +1,20 @@
+{
+    "name": "mageaustralia/maho-module-attribute-manager",
+    "license": "OSL-3.0",
+    "type": "maho-module",
+    "description": "Bulk dropdown/multiselect option management for Maho. Adds a \"Bulk Options\" tab to the product-attribute edit page: batch-add options by pasting one value per line, merge options (reassign every product from the ticked options onto a single goal option then delete the merged ones, all on option_id), per-store-view label editing, drag-and-drop reorder, Is Default, and delete. The native option grid is left fully intact.",
+    "keywords": ["maho", "attribute", "options", "bulk", "merge", "eav", "admin"],
+    "authors": [
+        {
+            "name": "Mage Australia",
+            "homepage": "https://mageaustralia.com.au"
+        }
+    ],
+    "require": {
+        "php": ">=8.3",
+        "mahocommerce/maho": "^26.5"
+    },
+    "extra": {
+        "maho-module-dir": "app/code/community/Mageaustralia/AttributeManager"
+    }
+}
