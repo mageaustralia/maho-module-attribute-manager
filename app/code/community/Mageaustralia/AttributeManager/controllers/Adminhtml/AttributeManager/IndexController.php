@@ -35,7 +35,10 @@ class Mageaustralia_AttributeManager_Adminhtml_AttributeManager_IndexController 
     public function preDispatch()
     {
         // CSRF: every action mutates data and must validate the admin form key.
-        $this->_setForcedFormKeyActions(['add', 'merge', 'save']);
+        // Removed in Maho 26.9, where core key-checks every admin request itself
+        if (method_exists($this, '_setForcedFormKeyActions')) {
+            $this->_setForcedFormKeyActions(['add', 'merge', 'save']);
+        }
         parent::preDispatch();
         return $this;
     }
